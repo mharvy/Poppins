@@ -2,7 +2,7 @@
 Poppins navigation system - 1.0
 ---------------------------------------------------------------
 NOTES:
-  0 degrees = west
+  0 degrees = north
 
 THANKS:
   A lot of this code is heavily based on example
