@@ -1,8 +1,9 @@
+
 /**************************************************************
 Poppins navigation system - 1.0
 ---------------------------------------------------------------
 NOTES:
-  0 degrees = north
+  0 degrees = west
 
 THANKS:
   A lot of this code is heavily based on example
@@ -20,6 +21,13 @@ THANKS:
 #include <Adafruit_GPS.h>
 #include <SoftwareSerial.h>
 
+// Libraries for LCD
+#include <LiquidCrystal.h>
+
+// Libraries for servo
+#include <Servo.h>
+
+
 // Variables for compass
 SFE_HMC6343 compass;
 unsigned int dir;
@@ -31,9 +39,22 @@ Adafruit_GPS GPS(&serial);
 float cur_long;
 float cur_lat;
 
+// Variables for LCD
+// Pinout Order: RS (4 on LCD), E (6), DB4 (11), DB5 (12), DB6 (13), DB7 (14)
+// UNO Pin Setup
+LiquidCrystal lcd (13, 12, 3, 4, 5, 6);
+// FINAL PCB Pin Setup
+//LiquidCrystal lcd (24, 23, 15, 16, 17, 18);
+
+// Variables for servo
+bool turning_left = false;
+bool turning_right = false;
+Servo servo_left;
+Servo servo_right;
+
 // TARGET COORDS (ECE building) (long E/W, lat N/W)
-#define TARGET_LONG (40.115047 * 100.0)
-#define TARGET_LAT (-88.228208 * 100.0)
+#define TARGET_LONG (40.115047)
+#define TARGET_LAT (-88.228208)
 
 #define TOLERANCE 45.0
 
@@ -63,11 +84,11 @@ void setup() {
   delay(500);
 
   // Calibrate the compass
-  Serial.println("Begin Calibration\n\r");
-  compass.enterCalMode();
-  delay(20000);
-  compass.exitCalMode();
-  Serial.println("End Calibration\n\r");
+  //  Serial.println("Begin Calibration\n\r");
+  //  compass.enterCalMode();
+  //  delay(20000);
+  //  compass.exitCalMode();
+  //  Serial.println("End Calibration\n\r");
 
   // *****************
   // *** SETUP GPS ***
@@ -88,6 +109,19 @@ void setup() {
 
   // Give GPS more time
   delay(1000);
+
+  // *****************
+  // *** SETUP LCD ***
+  // *****************
+  
+  lcd.begin(20,4);
+
+  // ********************
+  // *** SETUP SERVOS ***
+  // ********************
+
+  servo_left.attach(11);
+  servo_right.attach(9);
 }
 
 
@@ -111,8 +145,8 @@ void loop() {
 
     // Get position
     if (GPS.fix) {
-      cur_lat = GPS.latitude * (GPS.lat == 'N' ? 1.0 : -1.0);
-      cur_long = GPS.longitude * (GPS.lon == 'E' ? 1.0 : -1.0);
+      cur_lat = GPS.latitudeDegrees;
+      cur_long = GPS.longitudeDegrees;
     }
 
     // Get direction
@@ -193,16 +227,66 @@ void loop() {
       if (dir < center_b && dir > right_b)
         turn_left = true;
     }
+
+    // Move motors
+    if (turn_left && !turning_left) {
+      for (int i = 90; i <= 180; i += 90) {
+        servo_left.write(i);
+        delay(1000);
+      }
+      //servo_left.write(180);
+      turning_left = true;
+      delay(30);
+    }
+    else if (!turn_left && turning_left) {
+      //Serial.print("HMMMM :"); Serial.print(turn_left); Serial.print(turning_left); Serial.println();
+      for (int i = 180; i >= 90; i-= 90) {
+        servo_left.write(i);
+        delay(1000);
+      }
+      //servo_left.write(60);
+      turning_left = false;
+      delay(30);
+    }
+
+    if (turn_right && !turning_right) {
+      for (int i = 90; i <= 180; i += 90) {
+        servo_right.write(i);
+        delay(1000);
+      }
+      //servo_left.write(180);
+      turning_right = true;
+      delay(30);
+    }
+    else if (!turn_right && turning_right) {
+      //Serial.print("HMMMM :"); Serial.print(turn_left); Serial.print(turning_left); Serial.println();
+      for (int i = 180; i >= 90; i-= 90) {
+        servo_right.write(i);
+        delay(1000);
+      }
+      //servo_left.write(60);
+      turning_right = false;
+      delay(30);
+    }
     
     // Output debug info
     Serial.print("Direction: "); Serial.print(dir); Serial.println();
-    Serial.print("Position: "); Serial.print(GPS.latitude, 4); Serial.print(", "); Serial.print(cur_long, 4); Serial.println();
+    Serial.print("Position: "); Serial.print(cur_lat, 4); Serial.print(", "); Serial.print(cur_long, 4); Serial.println();
     Serial.print("Ideal angle: "); Serial.print(angle, 2); Serial.println();
     if (turn_right)
       Serial.print("TURN_RIGHT"); Serial.println();
     if (turn_left)
       Serial.print("TURN_LEFT"); Serial.println();
     Serial.println();
-    
+
+    // Output to LCD
+    lcd.clear();
+    lcd.print("Direction: "); lcd.print(dir);
+    lcd.setCursor(0,1);
+    lcd.print("Pos: "); lcd.print(cur_lat, 2); lcd.print(", "); lcd.print(cur_long, 2);
+    lcd.setCursor(0,2);
+    lcd.print("Ideal angle: "); lcd.print(angle, 2);
+    lcd.setCursor(0,3);
+    lcd.print("TR: "); lcd.print(turn_right); lcd.print("TL: "); lcd.print(turn_left);
   }
 }
